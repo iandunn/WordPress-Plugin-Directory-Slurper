@@ -2,6 +2,7 @@
 <?php
 $args = $argv;
 $cmd = array_shift( $args );
+define( 'REVISION_CHUNK_LIMIT', 5000 );
 
 $type = 'all';
 if ( !empty( $args[0] ) ) {
@@ -53,10 +54,23 @@ $start_time = time();
 
 if ( $last_revision != $svn_last_revision ) {
 	if ( $last_revision ) {
-		$changelog_url = sprintf( 'http://plugins.trac.wordpress.org/log/?verbose=on&mode=follow_copy&format=changelog&rev=%d&limit=%d', $svn_last_revision, $svn_last_revision - $last_revision );
-		$changes = file_get_contents( $changelog_url );
-		preg_match_all( '#^' . "\t" . '*\* ([^/A-Z ]+)[ /].* \((added|modified|deleted|moved|copied)\)' . "\n" . '#m', $changes, $matches );
-		$plugins = array_unique( $matches[1] );
+		$plugins = array();
+		$revision_chunk_head = $svn_last_revision;
+		printf( "Fetching %s revisions.\r\n", number_format( $svn_last_revision - $last_revision ) );
+
+		while ( $revision_chunk_head > $last_revision ) {
+			$remaining_revisions = $revision_chunk_head - $last_revision;
+			$revision_chunk_size = $remaining_revisions > REVISION_CHUNK_LIMIT ? REVISION_CHUNK_LIMIT : $remaining_revisions;
+
+			$changelog_url = sprintf( 'http://plugins.trac.wordpress.org/log/?verbose=on&mode=follow_copy&format=changelog&rev=%d&limit=%d', $revision_chunk_head, $revision_chunk_size );
+			$changes = file_get_contents( $changelog_url );
+			preg_match_all( '#^' . "\t" . '*\* ([^/A-Z ]+)[ /].* \((added|modified|deleted|moved|copied)\)' . "\n" . '#m', $changes, $matches );
+			$plugins = array_merge( $plugins, $matches[1] );
+
+			$revision_chunk_head -= REVISION_CHUNK_LIMIT;
+		}
+
+		$plugins = array_unique( $plugins );
 	} else {
 		$plugins = file_get_contents( 'http://svn.wp-plugins.org/' );
 		preg_match_all( '#<li><a href="([^/]+)/">([^/]+)/</a></li>#', $plugins, $matches );
