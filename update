@@ -65,12 +65,10 @@ if ( $last_revision != $svn_last_revision ) {
 			$changelog_url = sprintf( 'http://plugins.trac.wordpress.org/log/?verbose=on&mode=follow_copy&format=changelog&rev=%d&limit=%d', $revision_chunk_head, $revision_chunk_size );
 			$changes = file_get_contents( $changelog_url );
 			preg_match_all( '#^' . "\t" . '*\* ([^/A-Z ]+)[ /].* \((added|modified|deleted|moved|copied)\)' . "\n" . '#m', $changes, $matches );
-			$plugins = array_merge( $plugins, $matches[1] );
+			$plugins = array_unique( array_merge( $plugins, $matches[1] ) );
 
 			$revision_chunk_head -= REVISION_CHUNK_LIMIT;
 		}
-
-		$plugins = array_unique( $plugins );
 	} else {
 		$plugins = file_get_contents( 'http://svn.wp-plugins.org/' );
 		preg_match_all( '#<li><a href="([^/]+)/">([^/]+)/</a></li>#', $plugins, $matches );
